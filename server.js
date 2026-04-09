@@ -1,39 +1,36 @@
-import express from "express";
-import cors from "cors";
+import express from 'express';
+import cors from 'cors';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.post("/chat", async (req, res) => {
+app.post('/chat', async (req, res) => {
   try {
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    
-    if (!apiKey) {
-      return res.status(500).json({ error: "Chave API não configurada no Render." });
-    }
+    const key = process.env.OPENROUTER_API_KEY;
+    if (!key) return res.status(500).json({ error: 'Falta chave no Render' });
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: "openai/gpt-3.5-turbo",
+        model: 'openai/gpt-3.5-turbo',
         messages: req.body.messages
       })
     });
 
     const data = await response.json();
     res.json(data);
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log('Servidor OK na porta ' + PORT));
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
