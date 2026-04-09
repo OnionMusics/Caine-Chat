@@ -1,5 +1,4 @@
 import express from "express";
-import fetch from "node-fetch";
 import cors from "cors";
 
 const app = express();
@@ -8,18 +7,17 @@ app.use(express.json());
 
 app.post("/chat", async (req, res) => {
   try {
-    // Verificação de segurança para a chave
-    if (!process.env.OPENROUTER_API_KEY) {
-      console.error("ERRO: A variável OPENROUTER_API_KEY não foi configurada!");
-      return res.status(500).json({ error: "Configuração de API ausente no servidor." });
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    
+    if (!apiKey) {
+      return res.status(500).json({ error: "Chave API não configurada no Render." });
     }
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://caine-chat.onrender.com", 
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         model: "openai/gpt-3.5-turbo",
@@ -28,12 +26,17 @@ app.post("/chat", async (req, res) => {
     });
 
     const data = await response.json();
+    res.json(data);
 
-    if (data.error) {
-      console.error("Erro retornado pelo OpenRouter:", data.error);
-      return res.status(response.status).json({ error: data.error.message || "Erro na API" });
-    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
     res.json(data);
 
   } catch (err) {
