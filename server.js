@@ -9,30 +9,58 @@ app.use(express.json());
 
 app.post("/chat", async (req, res) => {
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": "Bearer " + process.env.API_KEY,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "deepseek/deepseek-chat",
         messages: req.body.messages
       })
     });
 
     const data = await response.json();
-    console.log("API:", data);
+    console.log("OPENROUTER:", data);
 
-    res.json(data);
+    let reply = "Erro na IA 😵";
+
+    // ✅ trata resposta normal
+    if (data.choices && data.choices.length > 0) {
+      reply = data.choices[0].message?.content || reply;
+    }
+
+    // ❌ trata erro vindo da API
+    if (data.error) {
+      reply = "Erro: " + data.error.message;
+    }
+
+    // 🔄 SEMPRE retorna padrão compatível com seu frontend
+    res.json({
+      choices: [
+        {
+          message: {
+            content: reply
+          }
+        }
+      ]
+    });
 
   } catch (e) {
     console.log("ERRO:", e);
-    res.json({ error: "Erro no servidor" });
+    res.json({
+      choices: [
+        {
+          message: {
+            content: "Erro de conexão com servidor 🚫"
+          }
+        }
+      ]
+    });
   }
 });
 
-// 🔥 ESSENCIAL PRA RENDER
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
