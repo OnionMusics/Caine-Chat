@@ -3,6 +3,7 @@ import fetch from "node-fetch";
 import cors from "cors";
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
@@ -21,11 +22,19 @@ app.post("/chat", async (req, res) => {
     });
 
     const data = await response.json();
+    console.log("API:", data);
+
     res.json(data);
 
   } catch (e) {
+    console.log("ERRO:", e);
     res.json({ error: "Erro no servidor" });
   }
 });
 
-app.listen(3000, () => console.log("Servidor rodando 🚀"));
+// 🔥 ESSENCIAL PRA RENDER
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("Rodando na porta " + PORT);
+});
