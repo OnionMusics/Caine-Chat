@@ -11,8 +11,9 @@ app.post("/chat", async (req, res) => {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`, // 🔥 ESSENCIAL
-        "Content-Type": "application/json"
+        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://seusite.com", // Opcional, exigido por alguns modelos no OpenRouter
       },
       body: JSON.stringify({
         model: "openai/gpt-3.5-turbo",
@@ -21,12 +22,22 @@ app.post("/chat", async (req, res) => {
     });
 
     const data = await response.json();
+
+    if (data.error) {
+      console.error("Erro da API OpenRouter:", data.error);
+      return res.status(500).json({ error: data.error.message });
+    }
+
     res.json(data);
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Erro interno no servidor:", err.message);
+    res.status(500).json({ error: "Erro ao processar a requisição." });
   }
 });
 
-app.listen(3000, () => console.log("Servidor rodando"));  console.log("Rodando na porta " + PORT);
+// Configuração da porta para o Render.com
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
