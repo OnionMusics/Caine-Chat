@@ -5,36 +5,46 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const API_KEY = process.env.API_KEY;
+const API_KEY = process.env.OPENROUTER_API_KEY;
 
 app.post("/chat", async (req, res) => {
   try {
+    if (!API_KEY) {
+      return res.status(500).json({ error: "OPENROUTER_API_KEY não configurada no Render." });
+    }
+
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${API_KEY}`,
-        "Content-Type": "application/json"
+        "Authorization": `Bearer ${API_KEY.trim()}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost",
+        "X-Title": "Caine AI"
       },
       body: JSON.stringify({
-        model: "openai/gpt-3.5-turbo", // Modelo mais estável
+        model: "openai/gpt-3.5-turbo",
         messages: req.body.messages
       })
     });
 
     const data = await response.json();
+
+    // 👇 DEBUG IMPORTANTE
+    if (!response.ok) {
+      console.log("Erro OpenRouter:", data);
+      return res.status(response.status).json(data);
+    }
+
     res.json(data);
+
   } catch (e) {
-    res.status(500).json({ error: "Erro de conexão" });
+    console.error(e);
+    res.status(500).json({ error: "Erro de conexão no servidor." });
   }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Servidor Online"));
-      return res.json({
-        choices: [{ message: { content: "Erro na API: " + data.error.message } }]
-      });
-    }
-
     // Retorna a resposta no formato que seu script.js espera
     res.json(data);
 
