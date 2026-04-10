@@ -1,19 +1,33 @@
-app.post("/chat-stream", async (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
+import express from "express";
+import cors from "cors";
+import { chat, chatStream } from "./engine.js";
+import { getMorningMessage } from "./personality.js";
 
-  const { message } = req.body;
+const app = express();
 
-  const response = await openAIProvider(message);
+app.use(cors());
+app.use(express.json());
 
-  const words = response.split(" ");
+app.post("/chat", async (req, res) => {
+  const { message, userId } = req.body;
 
-  for (const word of words) {
-    res.write(`data: ${word} \n\n`);
-    await new Promise(r => setTimeout(r, 40)); // efeito digitação
-  }
+  const response = await chat(message, userId);
 
-  res.write("data: [DONE]\n\n");
-  res.end();
+  res.json({ response });
 });
+
+app.post("/chat-stream", async (req, res) => {
+  await chatStream(req, res);
+});
+
+app.get("/startup-message", (req, res) => {
+  const msg = getMorningMessage();
+  res.json({ message: msg });
+});
+
+app.get("/health", (req, res) => {
+  res.json({ ok: true });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("🔥 Caine AI rodando"));
