@@ -1,40 +1,71 @@
-import express from 'express';
-import cors from 'cors';
+import express from "express";
+import fetch from "node-fetch";
+import cors from "cors";
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
-// COLE SUA CHAVE AQUI
-const KEY = "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";
-
-app.post('/chat', async (req, res) => {
+app.post("/chat", async (req, res) => {
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${KEY}`,
-        'Content-Type': 'application/json'
+        "Authorization": "Bearer " + process.env.API_KEY,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: 'openai/gpt-3.5-turbo',
+        model: "deepseek/deepseek-chat",
         messages: req.body.messages
       })
     });
 
     const data = await response.json();
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.log("OPENROUTER:", data);
+
+    let reply = "Erro na IA 😵";
+
+    // ✅ trata resposta normal
+    if (data.choices && data.choices.length > 0) {
+      reply = data.choices[0].message?.content || reply;
+    }
+
+    // ❌ trata erro vindo da API
+    if (data.error) {
+      reply = "Erro: " + data.error.message;
+    }
+
+    // 🔄 SEMPRE retorna padrão compatível com seu frontend
+    res.json({
+      choices: [
+        {
+          message: {
+            content: reply
+          }
+        }
+      ]
+    });
+
+  } catch (e) {
+    console.log("ERRO:", e);
+    res.json({
+      choices: [
+        {
+          message: {
+            content: "Erro de conexão com servidor 🚫"
+          }
+        }
+      ]
+    });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('Servidor rodando'));
-app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
-  } catch (err) {
-    console.log("Erro servidor:", err);
-    res.status(500).json({ error: err.message });
+
+app.listen(PORT, () => {
+  console.log("Rodando na porta " + PORT);
+});    res.status(500).json({ error: err.message });
   }
 });
 
