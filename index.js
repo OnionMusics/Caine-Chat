@@ -5,35 +5,37 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// LISTA DE MODELOS (DO MAIS DESEJADO PARA O MAIS ESTÁVEL/BARATO)
-const MODEL_PRIORITY = [
-  "openai/gpt-3.5-turbo",
-  "google/gemini-2.0-flash-lite-001", // Modelo grátis/barato e muito rápido
-  "anthropic/claude-3-haiku",
-  "mistralai/mistral-7b-instruct"
-];
-
 app.post('/chat', async (req, res) => {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  
-  if (!apiKey) {
-    return res.status(500).json({ error: "Configuração ausente: adicione OPENROUTER_API_KEY no Render." });
-  }
+  try {
+    // Tenta pegar do Render, se não tiver, usa a que você colar aqui
+    const MINHA_CHAVE_RESERVA = "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"; 
+    const key = process.env.OPENROUTER_API_KEY || MINHA_CHAVE_RESERVA;
 
-  // TENTA CADA MODELO DA LISTA ATÉ UM FUNCIONAR
-  for (const model of MODEL_PRIORITY) {
-    try {
-      console.log(`Tentando modelo: ${model}...`);
-      
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://caine-ai.render.com',
-          'X-Title': 'Caine AI Dynamic'
-        },
-        body: JSON.stringify({
+    if (!key || key === "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) {
+      return res.status(500).json({ error: 'Chave API ausente. Cole a chave no server.js ou no Render.' });
+    }
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-3.5-turbo',
+        messages: req.body.messages
+      })
+    });
+
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log('Servidor rodando'));
           model: model,
           messages: req.body.messages,
           max_tokens: 500
