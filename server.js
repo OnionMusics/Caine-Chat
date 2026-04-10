@@ -1,63 +1,52 @@
 import express from 'express';
 import cors from 'cors';
+import fetch from 'node-fetch';
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
 app.post('/chat', async (req, res) => {
   try {
     const key = process.env.OPENROUTER_API_KEY;
-    if (!key) return res.status(500).json({ error: 'Falta chave no Render' });
+
+    if (!key) {
+      return res.status(500).json({ error: 'Falta chave no Render' });
+    }
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${key}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://caine-chat.onrender.com',
+        'X-Title': 'Caine AI'
       },
       body: JSON.stringify({
-        model: 'openai/gpt-3.5-turbo',
+        model: 'mistralai/mistral-7b-instruct', // 🔥 modelo gratuito
         messages: req.body.messages
       })
     });
 
     const data = await response.json();
+
+    // 🔥 DEBUG IMPORTANTE
+    if (data.error) {
+      console.log("Erro OpenRouter:", data.error);
+      return res.status(500).json(data);
+    }
+
     res.json(data);
+
   } catch (err) {
+    console.log("Erro servidor:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('Servidor OK na porta ' + PORT));
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
-    res.json(data);
 
-  } catch (err) {
-    console.error("Falha Crítica no Servidor:", err.message);
-    res.status(500).json({ error: "Erro de conexão. Verifique os logs do servidor." });
-  }
-});
-
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
-  }
-});
-
-// Porta dinâmica para o Render ou 3000 local
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor ativo na porta ${PORT}`);
-});
-});
-
-// Configuração da porta para o Render.com
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log('Servidor rodando na porta ' + PORT);
 });
