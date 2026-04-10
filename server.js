@@ -1,5 +1,4 @@
 import express from "express";
-import fetch from "node-fetch";
 import cors from "cors";
 
 const app = express();
@@ -9,11 +8,22 @@ app.use(express.json());
 
 app.post("/chat", async (req, res) => {
   try {
+    const apiKey = process.env.API_KEY;
+
+    if (!apiKey) {
+      return res.json({
+        choices: [{ message: { content: "ERRO: Chave API_KEY não encontrada no Render." } }]
+      });
+    }
+
+    // Usando o fetch nativo do Node 22 (não precisa de import node-fetch)
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer " + process.env.API_KEY,
-        "Content-Type": "application/json"
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://render.com", // Opcional para OpenRouter
+        "X-Title": "Caine Chat" 
       },
       body: JSON.stringify({
         model: "deepseek/deepseek-chat",
@@ -22,55 +32,25 @@ app.post("/chat", async (req, res) => {
     });
 
     const data = await response.json();
-    console.log("OPENROUTER:", data);
 
-    let reply = "Erro na IA 😵";
-
-    // ✅ trata resposta normal
-    if (data.choices && data.choices.length > 0) {
-      reply = data.choices[0].message?.content || reply;
-    }
-
-    // ❌ trata erro vindo da API
     if (data.error) {
-      reply = "Erro: " + data.error.message;
+      return res.json({
+        choices: [{ message: { content: "Erro na API: " + data.error.message } }]
+      });
     }
 
-    // 🔄 SEMPRE retorna padrão compatível com seu frontend
-    res.json({
-      choices: [
-        {
-          message: {
-            content: reply
-          }
-        }
-      ]
-    });
+    // Retorna a resposta no formato que seu script.js espera
+    res.json(data);
 
   } catch (e) {
-    console.log("ERRO:", e);
+    console.error("ERRO NO SERVIDOR:", e);
     res.json({
-      choices: [
-        {
-          message: {
-            content: "Erro de conexão com servidor 🚫"
-          }
-        }
-      ]
+      choices: [{ message: { content: "Servidor instável. Tente novamente." } }]
     });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
-  console.log("Rodando na porta " + PORT);
-});    res.status(500).json({ error: err.message });
-  }
-});
-
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log('Servidor rodando na porta ' + PORT);
+  console.log("Servidor ativo na porta " + PORT);
 });
