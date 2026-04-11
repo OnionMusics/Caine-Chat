@@ -7,34 +7,147 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🔑 ENV
 const API_KEY = process.env.OPENROUTER_API_KEY;
-const SERP_KEY = process.env.SERPAPI_KEY;
 
 // ==============================
-// 🛡️ FUNÇÃO FILTRO DE FONTES
+// 🌐 BUSCA
 // ==============================
-function filterTrusted(results = []) {
-  return results.filter(r =>
-    r.link?.includes(".edu") ||
-    r.link?.includes(".gov") ||
-    r.link?.includes("wikipedia") ||
-    r.link?.includes("bbc") ||
-    r.link?.includes("g1") ||
-    r.link?.includes("uol") ||
-    r.link?.includes("globo")
-  );
+async function searchFree(query) {
+  try {
+    const res = await axios.get("https://api.duckduckgo.com/", {
+      params: {
+        q: query,
+        format: "json",
+        no_html: 1
+      }
+    });
+
+    let results = [];
+
+    if (res.data.RelatedTopics) {
+      results = res.data.RelatedTopics
+        .filter(r => r.Text && r.FirstURL)
+        .map(r => ({
+          title: r.Text,
+          url: r.FirstURL
+        }));
+    }
+
+    return results.slice(0, 5);
+
+  } catch {
+    return [];
+  }
 }
 
 // ==============================
-// 🌐 BUSCA REAL
+// 💬 CHAT
 // ==============================
-async function searchGoogle(query) {
+app.post("/chat", async (req, res) => {
   try {
-    if (!SERP_KEY) return [];
+    if (!API_KEY) {
+      return res.status(500).json({
+        error: "API não configurada"
+      });
+    }
 
-    const res = await axios.get("https://serpapi.com/search.json", {
-      params: {
+    const messages = req.body.messages || [];
+    const userMsg = messages.slice(-1)[0]?.content || "";
+
+    // 🔎 busca
+    const sources = await searchFree(userMsg);
+
+    const sourcesText = sources.map((s, i) =>
+      `[${i+1}] ${s.title} (${s.url})`
+    ).join("\n");
+
+    // 🤖 PROMPT INTELIGENTE
+    const systemPrompt = `
+Você é Caine.
+
+Nome completo: Creative Artificial Intelligence Networking Entity.
+
+Se perguntarem seu nome:
+"Meu nome completo é Creative Artificial Intelligence Networking Entity, mas pode me chamar só de Caine."
+
+ESTILO:
+- Masculino
+- Direto
+- Robótico
+- Sem enrolação
+
+FUNÇÃO PRINCIPAL:
+Você analisa informações da internet e detecta possíveis fake news.
+
+REGRAS:
+
+1. Sempre verificar:
+- se as fontes parecem confiáveis
+- se há contradições
+- se o conteúdo parece exagerado ou sensacionalista
+
+2. Classifique a resposta como:
+- "Confiável"
+- "Duvidoso"
+- "Possível fake news"
+
+3. Explique o motivo da classificação
+
+4. Cite fontes no meio do texto usando [1], [2]
+
+5. No final, liste as fontes
+
+6. Nunca invente informação
+
+7. Se não tiver dados suficientes:
+diga claramente
+
+Fontes:
+${sourcesText}
+`;
+
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-3.5-turbo",
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...messages
+          ]
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    let reply = data.choices?.[0]?.message?.content || "Erro";
+
+    if (sourcesText) {
+      reply += `\n\nFontes:\n${sourcesText}`;
+    }
+
+    res.json({
+      choices: [
+        {
+          message: { content: reply }
+        }
+      ]
+    });
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Servidor rodando"));      params: {
         q: query,
         api_key: SERP_KEY,
         hl: "pt-br"
