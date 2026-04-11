@@ -7,14 +7,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ==============================
 // 🔑 ENV
-// ==============================
 const API_KEY = process.env.OPENROUTER_API_KEY;
-const ELEVEN_KEY = process.env.ELEVEN_API_KEY;
 
 // ==============================
-// 🌐 BUSCA GRATUITA
+// 🌐 BUSCA
 // ==============================
 async function searchFree(query) {
   try {
@@ -26,15 +23,131 @@ async function searchFree(query) {
       }
     });
 
-    let results = [];
+    if (!res.data?.RelatedTopics) return [];
 
-    if (res.data.RelatedTopics) {
-      results = res.data.RelatedTopics
-        .filter(r => r.Text && r.FirstURL)
-        .map(r => ({
-          title: r.Text,
-          url: r.FirstURL
-        }));
+    return res.data.RelatedTopics
+      .filter(r => r.Text && r.FirstURL)
+      .map(r => ({
+        title: r.Text,
+        url: r.FirstURL
+      }))
+      .slice(0, 5);
+
+  } catch (err) {
+    console.log("Erro busca:", err.message);
+    return [];
+  }
+}
+
+// ==============================
+// 💬 CHAT
+// ==============================
+app.post("/chat", async (req, res) => {
+  try {
+    if (!API_KEY) {
+      return res.status(500).json({
+        error: "API_KEY não configurada"
+      });
+    }
+
+    const messages = req.body?.messages;
+
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({
+        error: "messages inválido"
+      });
+    }
+
+    const userMsg = messages[messages.length - 1]?.content || "";
+
+    // 🔎 busca
+    const sources = await searchFree(userMsg);
+
+    const sourcesText = sources.map((s, i) =>
+      `[${i + 1}] ${s.title} (${s.url})`
+    ).join("\n");
+
+    const systemPrompt = `
+Você é Caine.
+
+- Masculino
+- Direto
+- Robótico
+- Sem enrolação
+
+Função:
+- Ajudar em estudos
+- Detectar fake news
+
+Regras:
+- Classificar como:
+  Confiável / Duvidoso / Possível fake news
+- Explicar
+- Usar [1], [2]
+- Não inventar
+
+Fontes:
+${sourcesText}
+`;
+
+    // 🔥 chamada usando axios (mais estável que fetch)
+    const response = await axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        model: "openai/gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...messages
+        ]
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    const data = response.data;
+
+    if (!data?.choices) {
+      return res.status(500).json({
+        error: "Resposta inválida da IA",
+        raw: data
+      });
+    }
+
+    let reply = data.choices[0].message.content;
+
+    if (sourcesText) {
+      reply += `\n\nFontes:\n${sourcesText}`;
+    }
+
+    res.json({
+      choices: [
+        {
+          message: { content: reply }
+        }
+      ]
+    });
+
+  } catch (err) {
+    console.log("Erro geral:", err.response?.data || err.message);
+
+    res.status(500).json({
+      error: "Erro interno"
+    });
+  }
+});
+
+// ==============================
+// 🚀 START
+// ==============================
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("Servidor rodando na porta " + PORT);
+});        }));
     }
 
     return results.slice(0, 5);
