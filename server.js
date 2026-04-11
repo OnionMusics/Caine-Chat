@@ -1,39 +1,39 @@
 import express from "express";
 import cors from "cors";
-import axios from "axios";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
+// 🔑 API KEY (Railway Environment Variables)
 const API_KEY = process.env.OPENROUTER_API_KEY;
 
 // ==============================
-// 🌐 BUSCA
+// CHAT ROUTE
 // ==============================
-async function searchFree(query) {
-  try {
-    const res = await axios.get("https://api.duckduckgo.com/", {
-      params: {
-        q: query,
-        format: "json",
-        no_html: 1
-      }
-    });
+app.post("/chat", async (req, res) => {
+try {
+// valida API key
+if (!API_KEY) {
+return res.status(500).json({
+error: "OPENROUTER_API_KEY não configurada no ambiente."
+});
+}
 
-    let results = [];
+// valida body  
+if (!req.body?.messages) {  
+  return res.status(400).json({  
+    error: "Requisição inválida: messages não encontrado."  
+  });  
+}  
 
-    if (res.data.RelatedTopics) {
-      results = res.data.RelatedTopics
-        .filter(r => r.Text && r.FirstURL)
-        .map(r => ({
-          title: r.Text,
-          url: r.FirstURL
-        }));
-    }
-
-    return results.slice(0, 5);
+// chamada OpenRouter  
+const response = await fetch(  
+  "https://openrouter.ai/api/v1/chat/completions",  
+  {  
+    method: "POST",  
+    headers: {
 
   } catch {
     return [];
